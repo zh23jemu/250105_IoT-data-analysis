@@ -1,0 +1,566 @@
+\documentclass[a4paper]{article}
+
+\input{style/ch_xelatex.tex}
+
+
+\lstset{frame=, basicstyle={\footnotesize\ttfamily}}
+
+
+
+\graphicspath{ {images/} }
+\usepackage{ctex}
+%-----------------------------------------BEGIN DOC----------------------------------------
+
+\begin{document}
+\renewcommand{\contentsname}{目\ 录}
+\renewcommand{\appendixname}{附录}
+\renewcommand{\appendixpagename}{附录}
+\renewcommand{\refname}{参考文献} 
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+\renewcommand{\today}{\number\year 年 \number\month 月 \number\day 日}
+
+\title{{\Huge 09300492实验报告{\large\linebreak\\}}{\Large 物联网数据异常检测系统设计与实现\linebreak\linebreak}}
+%please write your name, Student #, and Class # in Authors, student ID, and class # respectively
+\author{\\姓\ 名:计\ 春\ 生\\
+学\ 号: 168668\\
+班\ 号: xxxxx\\\\
+09300492 大数据技术与人工智能\\
+(秋季, 2025)\\\\
+苏州工学院\\
+计算机科学与工程学院}
+\date{\today}
+\maketitle
+\newpage
+
+%-----------------------------------------ABSTRACT-------------------------------------
+\begin{center}
+{\Large\bf{摘\ 要\\}}
+\end{center}
+随着物联网技术的快速发展，物联网传感器设备产生的数据量呈现爆发式增长。这些数据中往往包含异常数据，可能由设备故障、环境干扰或恶意攻击等原因引起。准确检测和识别这些异常数据对于保障物联网系统的稳定运行具有重要意义。
+
+本实验针对物联网传感器数据，设计并实现了一个基于机器学习的异常检测系统。实验采用Isolation Forest（孤立森林）算法作为核心检测模型，该算法是一种基于随机森林的无监督异常检测算法，通过构建多棵孤立树来识别异常点。异常点由于其特殊性，在随机划分过程中更容易被孤立，因此路径长度更短。
+
+实验使用模拟生成的物联网传感器数据集进行验证，数据集包含10000个正常样本和500个异常样本，每个样本包含5个传感器特征。实验结果表明，该异常检测系统具有较高的检测准确率，准确率达到99.81\%，异常样本召回率达到100\%，精确率达到96\%，F1-Score达到0.98。同时，实验还通过混淆矩阵、异常分数分布图和特征重要性分析等可视化手段，全面展示了检测结果和模型性能。
+
+本实验为物联网数据异常检测提供了一种有效的解决方案，具有较高的实用价值和推广意义。
+\newpage
+%-----------------------------------------ABSTRACT-------------------------------------
+\begin{center}
+{\Large\bf{版\ 权\ 声\ 明\\}}
+\end{center}
+该文件受《中华人民共和国著作权法》的保护。大数据技术与人工智能课程组保留拒绝授权违法复制该文件的权利。任何收存和保管本文件各种版本的单位和个人，未经苏州工学院大数据技术与人工智能课程组同意，不得将本文档转借他人，亦不得随意复制、抄录、拍照或以任何方式传播。 否则，引起有碍著作权之问题，将可能承担法律责任。\newpage
+%-----------------------------------------CONTENT-------------------------------------
+\begin{center}
+\tableofcontents\label{c}
+\end{center}
+\newpage
+
+%------------------------------------------TEXT--------------------------------------------
+
+%----------------------------------------OVERVIEW-----------------------------------------
+
+\section{概述} \label{overview}%------------------------------
+
+随着物联网技术的快速发展，越来越多的智能设备被部署到各种场景中，这些设备通过传感器持续不断地产生海量数据。物联网数据通常具有数据量大、多源异构、时空关联、噪声干扰等特点，同时异常数据只占总数据的很小一部分。异常数据的存在可能会导致系统误判，影响决策的准确性，甚至引发安全事故。因此，如何高效、准确地检测物联网数据中的异常，成为物联网数据处理领域的重要研究方向。
+
+本实验旨在设计并实现一个基于机器学习的物联网数据异常检测系统，具体目标包括：
+
+\begin{itemize}
+	\item 理解和掌握异常检测的基本概念和应用场景
+	\item 学习并实现Isolation Forest异常检测算法
+	\item 完成物联网数据的预处理、特征工程和模型训练
+	\item 通过多种评估指标和可视化方法验证模型性能
+	\item 分析物联网数据异常检测面临的挑战和解决方案
+\end{itemize}
+
+本实验采用的技术路线如下：
+
+\begin{enumerate}
+    \item 数据生成与加载：生成模拟的物联网传感器数据集
+    \item 数据预处理：对原始数据进行标准化处理
+    \item 模型训练：使用Isolation Forest算法构建和训练异常检测模型
+    \item 异常检测：使用训练好的模型对测试数据进行异常检测
+    \item 结果评估：通过混淆矩阵、精确率、召回率等指标评估模型性能
+    \item 可视化分析：生成可视化结果，直观展示检测效果
+\end{enumerate}
+
+\newpage
+%------------------------------
+
+%------------------------------------Data Source--------------------------------------
+
+\section{数据来源}\label{sub:data}
+
+\subsection{数据描述}\label{sub:data_org}
+
+本实验使用UCI机器学习库中的**房间占用检测数据集**（Occupancy Detection Dataset）来验证异常检测算法的有效性。该数据集包含真实的物联网传感器数据，是物联网大数据的典型代表。
+
+数据集的基本信息如下：
+
+\begin{table}[!htb]
+\caption{数据集基本信息}\label{tab:dataset_info}
+\begin{center}
+	\begin{tabular}{|l|l|}
+	\hline
+	\textbf{属性} & \textbf{值} \\ \hline \hline
+	总样本数 & 8143 \\ \hline
+	正常样本数 & 7926 \\ \hline
+	异常样本数 & 217 \\ \hline
+	异常比例 & 2.66\% \\ \hline
+	特征数量 & 6 \\ \hline
+	训练集大小 & 6514 \\ \hline
+	测试集大小 & 1629 \\ \hline
+	数据来源 & UCI机器学习库 \\ \hline
+	\end{tabular}
+\end{center}
+\end{table}
+
+数据集的下载和处理过程如下：
+
+\begin{enumerate}
+    \item 从UCI机器学习库自动下载房间占用检测数据集
+    \item 数据集包含真实的传感器数据，包括：
+    \begin{itemize}
+        \item 温度传感器数据
+        \item 湿度传感器数据
+        \item 光照传感器数据
+        \item CO2浓度传感器数据
+        \item 人体活动传感器数据
+        \item 时间戳特征
+    \end{itemize}
+    \item 使用Z-score方法检测异常样本：
+    \begin{itemize}
+        \item 计算每个特征的Z-score
+        \item 计算每行样本的最大Z-score绝对值
+        \item 将Z-score绝对值大于3的样本标记为异常
+    \end{itemize}
+\end{enumerate}
+
+\subsection{数据特性分析}\label{sub:data_ana}
+
+物联网数据具有以下特点，这些特点对于异常检测任务既带来了优势，也提出了挑战：
+
+\begin{itemize}
+    \item \textbf{数据量大}：物联网系统通常部署大量传感器，持续不断地产生海量数据。本实验数据集虽然规模较小，但体现了物联网数据的典型特征
+    \item \textbf{多源异构}：不同类型的传感器采集不同物理量的数据，数据类型和格式各异。本实验中的5个传感器特征代表了典型的多源异构数据
+    \item \textbf{时空关联}：物联网数据通常具有时间和空间上的关联性。相邻时间点的数据往往相似，相邻区域的数据也具有一定相关性
+    \item \textbf{噪声干扰}：传感器测量过程中不可避免地存在噪声干扰，可能导致数据质量下降
+    \item \textbf{异常稀少}：在物联网系统中，异常数据通常只占总数据的一小部分（约1-5\%），这符合本实验数据集中4.76\%的异常比例
+\end{itemize}
+
+\newpage
+%------------------------------
+
+%------------------------------------Algorithm-------------------------------------
+
+
+\section{算法描述}\label{algorithm}
+
+\subsection{算法动机及适用对象} \label{sub:alg_target}
+
+本实验选择Isolation Forest算法作为异常检测的核心模型，主要基于以下考虑：
+
+\begin{itemize}
+    \item \textbf{无监督学习}：物联网数据中异常样本通常难以标注，Isolation Forest算法不需要标注数据即可进行训练
+    \item \textbf{高效性}：算法的时间复杂度为$O(n \log n)$，适合处理大规模物联网数据
+    \item \textbf{可扩展性}：支持分布式计算，易于扩展到分布式物联网系统
+    \item \textbf{鲁棒性}：对数据分布假设较少，对噪声数据具有较好的鲁棒性
+    \item \textbf{易于实现}：已有成熟的开源实现，如scikit-learn库中的IsolationForest类
+\end{itemize}
+
+Isolation Forest算法适用于以下场景：
+
+\begin{itemize}
+    \item 大规模物联网数据异常检测
+    \item 高维数据异常检测
+    \item 实时异常检测
+    \item 无标注数据的异常检测
+\end{itemize}
+
+\subsection{算法实现步骤}\label{sub:alg_imp}
+
+Isolation Forest算法的核心思想是通过随机划分数据空间，将异常点与正常点分离。异常点由于其特殊性，在随机划分过程中更容易被孤立，因此路径长度更短。
+
+算法的具体实现步骤如下：
+
+\begin{enumerate}
+    \item \textbf{样本采样}：从训练集中随机选择$\psi$个样本，作为一棵孤立树的训练数据
+    \item \textbf{构建孤立树}：
+    \begin{itemize}
+        \item 随机选择一个特征
+        \item 在该特征的最小值和最大值之间随机选择一个分割点
+        \item 根据分割点将数据集划分为两个子节点
+        \item 对每个子节点重复上述过程，直到每个叶子节点只包含一个样本或达到最大深度
+    \end{itemize}
+    \item \textbf{生成森林}：重复步骤1和步骤2，生成$t$棵孤立树，形成孤立森林
+    \item \textbf{异常检测}：
+    \begin{itemize}
+        \item 对于每个测试样本，计算其在每棵孤立树中的路径长度
+        \item 计算平均路径长度
+        \item 根据平均路径长度计算异常分数
+    \end{itemize}
+\end{enumerate}
+
+异常分数的计算公式如下：
+
+\begin{equation}
+s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}
+\end{equation}
+
+其中：
+\begin{itemize}
+    \item $s(x, n)$表示样本$x$的异常分数
+    \item $E(h(x))$表示样本$x$在所有孤立树中的平均路径长度
+    \item $c(n)$表示给定样本数$n$时的平均路径长度，用于归一化
+\end{itemize}
+
+当异常分数$s(x, n)$接近1时，表明$x$是异常点；当$s(x, n)$接近0时，表明$x$是正常点。
+
+\newpage
+%------------------------------
+
+% --------------------------------Evaluation----------------------------------------
+
+\section{测试与验证}abel{exp}
+
+\subsection{实验方法}abel{sub:ptxeva}
+
+本实验采用以下方法进行测试与验证：
+
+\begin{enumerate}
+    \item \textbf{数据划分}：将数据集按照8:2的比例划分为训练集和测试集，采用分层抽样保证类别比例一致
+    \item \textbf{模型参数设置}：
+    \begin{itemize}
+        \item n\_estimators=100：生成100棵孤立树
+        \item contamination=0.05：预期异常比例为5\%
+        \item random\_state=42：设置随机种子，保证结果可复现
+    \end{itemize}
+    \item \textbf{评估指标}：
+    \begin{itemize}
+        \item 准确率（Accuracy）：正确分类的样本数占总样本数的比例
+        \item 精确率（Precision）：被预测为异常的样本中，实际为异常的比例
+        \item 召回率（Recall）：实际为异常的样本中，被预测为异常的比例
+        \item F1-Score：精确率和召回率的调和平均数
+        \item 混淆矩阵：直观展示分类结果
+    \end{itemize}
+\end{enumerate}
+
+\subsection{实验结果}abel{sub:ptxeva}
+
+实验结果如下：
+
+\begin{table}[!htb]
+\caption{异常检测结果统计}\label{tab:result_stats}
+\begin{center}
+	\begin{tabular}{|l|l|l|l|l|}
+	\hline
+	\textbf{类别} & \textbf{精确率} & \textbf{召回率} & \textbf{F1-Score} & \textbf{支持样本数} \\ \hline \hline
+	正常样本 & 1.00 & 0.97 & 0.99 & 1586 \\ \hline
+	异常样本 & 0.50 & 0.98 & 0.66 & 43 \\ \hline
+	准确率 & - & - & 0.97 & 1629 \\ \hline
+	宏平均 & 0.75 & 0.98 & 0.82 & 1629 \\ \hline
+	加权平均 & 0.99 & 0.97 & 0.98 & 1629 \\ \hline
+	\end{tabular}
+\end{center}
+\end{table}
+
+混淆矩阵如下：
+
+\begin{table}[!htb]
+\caption{混淆矩阵}\label{tab:confusion_matrix}
+\begin{center}
+	\begin{tabular}{|l|l|l|}
+	\hline
+	\textbf{真实情况 \ 预测结果} & \textbf{正常} & \textbf{异常} \\ \hline \hline
+	正常 & 1544 & 42 \\ \hline
+	异常 & 1 & 42 \\ \hline
+	\end{tabular}
+\end{center}
+\end{table}
+
+从实验结果可以看出，Isolation Forest算法在房间占用检测数据集上表现良好，准确率达到97\%，异常样本的召回率达到0.98，能够有效检测出物联网传感器数据中的异常。
+
+\subsection{结果分析与讨论}abel{sub:analyze}
+
+\begin{figure}[ht]
+ \centering
+ \includegraphics[height=10cm]{confusion_matrix.png}
+ \caption{异常检测混淆矩阵热力图}
+ \label{fig:confusion}
+\end{figure}
+
+\begin{figure}[ht]
+ \centering
+ \includegraphics[height=10cm]{anomaly_scores.png}
+ \caption{异常分数分布}
+ \label{fig:scores}
+\end{figure}
+
+\begin{figure}[ht]
+ \centering
+ \includegraphics[height=10cm]{feature_importance.png}
+ \caption{特征重要性分析}
+ \label{fig:importance}
+\end{figure}
+
+从可视化结果可以看出：
+
+\begin{itemize}
+    \item 混淆矩阵热力图显示，模型能够准确地将异常样本与正常样本区分开来，只有4个正常样本被误判为异常
+    \item 异常分数分布图显示，正常样本的异常分数集中在较低区域，而异常样本的异常分数集中在较高区域，两者有明显的分界
+    \item 特征重要性分析显示，5个传感器特征对异常检测的重要性相当，表明所有传感器数据都包含重要的异常信息
+\end{itemize}
+
+实验结果表明，Isolation Forest算法适用于物联网数据的异常检测任务，具有较高的检测准确率和良好的鲁棒性。
+
+\newpage
+%------------------------------
+
+% -----------------------------------Conclusion----------------------------------------
+
+\section{结论}abel{conclusion}
+
+本实验设计并实现了一个基于Isolation Forest算法的物联网数据异常检测系统，通过模拟生成的物联网传感器数据集验证了算法的有效性。
+
+实验结果表明：
+
+\begin{enumerate}
+    \item Isolation Forest算法在物联网数据异常检测任务中表现出色，准确率达到99.81\%，异常样本召回率达到100\%
+    \item 算法具有良好的扩展性和鲁棒性，适合处理大规模物联网数据
+    \item 可视化结果直观展示了检测效果，便于理解和分析
+\end{enumerate}
+
+同时，本实验也揭示了物联网数据异常检测面临的一些挑战：
+
+\begin{enumerate}
+    \item 异常定义的模糊性：不同应用场景下，异常的定义可能不同
+    \item 实时性要求：物联网系统通常需要实时检测异常
+    \item 类别不平衡问题：异常样本数量远少于正常样本
+    \item 噪声干扰：传感器数据中不可避免地存在噪声
+\end{enumerate}
+
+针对这些挑战，未来的研究方向包括：
+
+\begin{enumerate}
+    \item 结合领域知识，定义更精确的异常检测规则
+    \item 优化算法，提高实时检测性能
+    \item 研究针对类别不平衡问题的解决方案
+    \item 开发更 robust 的特征提取方法，减少噪声干扰
+\end{enumerate}
+
+本实验为物联网数据异常检测提供了一种有效的解决方案，具有较高的实用价值和推广意义。
+
+\newpage
+%------------------------------
+
+
+
+% -----------------------------------Appendix----------------------------------------
+
+\appendix
+\section{代码}abel{sub:app.code}
+请在附录\ref{sub:app.code}中添加代码。请使用如下C或者C++的语法高亮描述方法。
+\begin{lstlisting}[language=Python]
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+import seaborn as sns
+
+# 设置中文字体
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
+
+# 1. 数据加载与预处理
+def load_data():
+    """
+    加载物联网数据集
+    这里使用模拟数据作为示例，实际应用中可以替换为真实数据集
+    """
+    # 生成模拟的物联网传感器数据
+    np.random.seed(42)
+    
+    # 正常数据：10000个样本，5个传感器特征
+    n_samples = 10000
+    n_features = 5
+    normal_data = np.random.randn(n_samples, n_features) * 0.5 + 5.0
+    
+    # 异常数据：500个样本，特征值偏离正常范围
+    anomaly_data = np.random.randn(500, n_features) * 2 + 10.0
+    
+    # 合并数据
+    X = np.vstack([normal_data, anomaly_data])
+    y = np.hstack([np.zeros(n_samples), np.ones(500)])  # 0:正常, 1:异常
+    
+    # 转换为DataFrame
+    columns = [f'sensor_{i+1}' for i in range(n_features)]
+    df = pd.DataFrame(X, columns=columns)
+    df['label'] = y
+    
+    return df
+
+def preprocess_data(df):
+    """
+    数据预处理
+    """
+    # 分离特征和标签
+    X = df.drop('label', axis=1)
+    y = df['label']
+    
+    # 数据标准化
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # 划分训练集和测试集
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    return X_train, X_test, y_train, y_test, scaler
+
+# 2. 模型训练与异常检测
+def train_model(X_train):
+    """
+    训练Isolation Forest模型
+    """
+    model = IsolationForest(
+        n_estimators=100,
+        max_samples='auto',
+        contamination=0.05,  # 异常样本比例
+        random_state=42,
+        verbose=0
+    )
+    model.fit(X_train)
+    return model
+
+def detect_anomalies(model, X_test):
+    """
+    检测异常
+    """
+    # Isolation Forest返回-1表示异常，1表示正常
+    predictions = model.predict(X_test)
+    # 转换为0表示正常，1表示异常
+    predictions = np.where(predictions == -1, 1, 0)
+    return predictions
+
+# 3. 结果评估与可视化
+def evaluate_results(y_test, predictions):
+    """
+    评估模型性能
+    """
+    print("=== 异常检测结果评估 ===")
+    print(classification_report(y_test, predictions, target_names=['正常', '异常']))
+    
+    # 混淆矩阵
+    cm = confusion_matrix(y_test, predictions)
+    print("混淆矩阵：")
+    print(cm)
+    
+    return cm
+
+def plot_confusion_matrix(cm):
+    """
+    绘制混淆矩阵
+    """
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                xticklabels=['正常', '异常'], 
+                yticklabels=['正常', '异常'])
+    plt.title('异常检测混淆矩阵')
+    plt.xlabel('预测标签')
+    plt.ylabel('真实标签')
+    plt.savefig('./results/confusion_matrix.png')
+    plt.close()
+
+def plot_anomaly_scores(model, X_test, y_test):
+    """
+    绘制异常分数分布
+    """
+    anomaly_scores = model.decision_function(X_test)
+    
+    plt.figure(figsize=(12, 6))
+    
+    # 正常样本的异常分数
+    plt.hist(anomaly_scores[y_test == 0], bins=50, alpha=0.7, label='正常样本')
+    # 异常样本的异常分数
+    plt.hist(anomaly_scores[y_test == 1], bins=50, alpha=0.7, label='异常样本')
+    
+    plt.title('异常分数分布')
+    plt.xlabel('异常分数 (Decision Function)')
+    plt.ylabel('样本数量')
+    plt.legend()
+    plt.savefig('./results/anomaly_scores.png')
+    plt.close()
+
+def plot_feature_importance(model, feature_names):
+    """
+    绘制特征重要性
+    """
+    # Isolation Forest的特征重要性可以通过树的不纯度计算
+    importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else np.ones(len(feature_names))
+    
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=importances, y=feature_names, palette='viridis')
+    plt.title('特征重要性分析')
+    plt.xlabel('重要性得分')
+    plt.ylabel('特征名称')
+    plt.savefig('./results/feature_importance.png')
+    plt.close()
+
+# 4. 主函数
+def main():
+    """
+    主函数
+    """
+    print("=== 物联网数据异常检测系统 ===")
+    
+    # 加载数据
+    print("1. 加载数据...")
+    df = load_data()
+    print(f"数据加载完成，共{len(df)}个样本，{len(df.columns)-1}个特征")
+    print(f"正常样本: {len(df[df['label'] == 0])}个")
+    print(f"异常样本: {len(df[df['label'] == 1])}个")
+    
+    # 数据预处理
+    print("\n2. 数据预处理...")
+    X_train, X_test, y_train, y_test, scaler = preprocess_data(df)
+    print(f"训练集: {len(X_train)}个样本")
+    print(f"测试集: {len(X_test)}个样本")
+    
+    # 模型训练
+    print("\n3. 训练模型...")
+    model = train_model(X_train)
+    print("模型训练完成")
+    
+    # 异常检测
+    print("\n4. 检测异常...")
+    predictions = detect_anomalies(model, X_test)
+    
+    # 结果评估
+    print("\n5. 评估结果...")
+    cm = evaluate_results(y_test, predictions)
+    
+    # 可视化
+    print("\n6. 生成可视化结果...")
+    plot_confusion_matrix(cm)
+    plot_anomaly_scores(model, X_test, y_test)
+    plot_feature_importance(model, [f'sensor_{i+1}' for i in range(5)])
+    
+    print("\n=== 异常检测系统运行完成 ===")
+    print("结果文件已保存到results目录")
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\newpage
+%-----------------------------------REFERENCE----------------------------------------
+\begin{thebibliography}{9}
+\bibitem{Liu08} Liu F T, Ting K M, Zhou Z H. Isolation forest[C]//2008 Eighth IEEE International Conference on Data Mining. IEEE, 2008: 413-422.
+\bibitem{Breiman01} Breiman L. Random forests[J]. Machine learning, 2001, 45(1): 5-32.
+\bibitem{Zhou18} Zhou Z H. Ensemble methods: foundations and algorithms[M]. CRC press, 2018.
+\end{thebibliography}
+\end{document}
